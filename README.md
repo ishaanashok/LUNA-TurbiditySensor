@@ -2,7 +2,7 @@
 
 Paired turbidity sensors that measure whether a bioretention cell is actually cleaning stormwater.
 
-CAD, firmware, images, and bill of materials for a two-node system: one sensor at the inlet, one at the outlet. Parts cost for the sensing pair is about $51.
+CAD, firmware, and build images for a two-node system: one sensor at the inlet, one at the outlet.
 
 ---
 
@@ -20,7 +20,7 @@ Cities are required to build bioretention, but almost never required to measure 
 
 The permit mandates periodic maintenance inspections — a visual check that the plants are alive, the inlet isn't blocked, and the basin drains. It does not require anyone to measure the water quality going in versus coming out. So a cell can silently stop treating runoff — clogged media, short-circuited flow, failed underdrain — while continuing to pass every inspection it gets.
 
-The reason nobody measures is cost. A professional water-quality monitoring station runs roughly $5,000 to $10,000 per site once you add the sensor, logger, modem, power, and enclosure. A single commercial turbidity sonde alone lists around $2,150. At that price a city can instrument a handful of showcase sites, not the hundreds it actually manages.
+The reason nobody measures is cost. A professional water-quality monitoring station runs roughly $5,000 to $10,000 per site once you add the sensor, logger, modem, power, and enclosure. At that price a city can instrument a handful of showcase sites, not the hundreds it actually manages.
 
 ### Why turbidity
 
@@ -37,10 +37,28 @@ Both nodes are built around the same core:
 - **ESP32 microcontroller** with a LoRa radio for wireless reporting
 - **850 nm infrared emitter and phototransistor** in a 3D-printed optical housing
 - **Servo-driven wiper** that clears the optical window between readings, so sediment and biofilm don't slowly corrupt the signal
-- **LiPo cell** sized for months of unattended operation
+- **LiPo cell** sized for long unattended operation
 - Deployment through a standard 4-inch municipal cleanout — no digging, no construction
 
 Because the hardware is cheap, the unit of deployment changes. Instead of instrumenting one site well, a city can instrument its whole portfolio.
+
+---
+
+## How we built it
+
+We started by replicating published low-cost turbidity designs to understand the optics, then rebuilt around what a storm drain actually demands.
+
+**The optical problem.** A storm drain has uncontrolled lighting, so a raw photodiode reading is meaningless. The firmware takes a reading with the emitter off and again with it on, and uses the difference — ambient light subtracts out. Each reading averages 1000 fast ADC samples to suppress electrical noise.
+
+**The noise problem.** Bubbles, passing debris, and flow surges produce spikes that aren't real turbidity. Calibration takes six readings per standard and applies an interquartile-range filter to discard outliers before averaging.
+
+**The curve problem.** Optical turbidity response is close to linear at low NTU and bends at higher concentrations, so assuming a model in advance is a mistake. The firmware fits both a linear and a quadratic model to the calibration points, computes R² for each, and automatically uses whichever fits better.
+
+**The fouling problem.** Anything sitting in stormwater grows biofilm and collects sediment, which slowly corrupts an optical reading in a way that looks like real data. That's why both housings evolved to carry a servo-driven wiper. The inlet design became a multi-part assembly with a magnet-coupled bottom, so the optical core stays sealed while the wiper moves.
+
+**The enclosure problem.** An early housing failed during water-flow testing — the printed part broke, water got in, and components washed away. That failure drove the move to carbon-filled engineering filament and a redesign around sealing surfaces.
+
+Three full design generations for each node, fifteen-plus hardware iterations overall.
 
 ---
 
@@ -51,41 +69,19 @@ Inlet Sensor/          CAD (STL) — v1 through v3, including wiper and magnet-c
 Effluent Sensor/       CAD (STL) — v1 through v3, plus electronics holder and battery mount
 SensorCode/            ESP32 firmware
 Project_LUNA_Images/   Build photos, bench tests, and field conditions
-BOM.txt                Bill of materials for a two-node build
 ```
 
-### Firmware
+**`Calibration_FinalRunCode.ino`** — the main sensing and calibration routine: ambient-cancelling signal capture, outlier filtering, automatic model selection, and a live NTU output stream.
 
-**`Calibration_FinalRunCode.ino`** — the main sensing and calibration routine.
-
-- Reads the phototransistor with the LED on and off, and uses the **difference** as the signal. This cancels ambient light, which matters in a storm drain where lighting is uncontrolled.
-- Averages 1000 fast ADC samples per reading to suppress electrical noise.
-- Takes 6 macro-readings per calibration standard and applies an **IQR outlier filter** to discard bubbles and transient junk before averaging.
-- Fits both a **linear** and a **quadratic** model to the calibration points, computes R² for each, and automatically selects whichever fits better. Turbidity response is close to linear at low NTU and curves at higher concentrations, so the model shouldn't be assumed in advance.
-- Clamps negative results to zero, since negative turbidity is physically meaningless.
-
-**`OutletServoTest.ino`** — positional control for the DS-M005 wiper servo, with pulse widths matched to the datasheet for a full 0–180° sweep.
-
-### CAD
-
-Three design generations for each node. The inlet housing evolved into a multi-part assembly with a separate wiper and a magnet-coupled bottom, letting the optical core stay sealed while the wiper moves. The effluent side includes a rope-deployed sensing head plus a separate electronics holder that keeps the board and battery above the water line.
+**`OutletServoTest.ino`** — positional control for the wiper servo, with pulse widths matched to the DS-M005 datasheet for a full 0–180° sweep.
 
 ---
 
-## Current status
+## Where we are
 
-**Both sensors are built and validated.**
+Both sensors are built and calibrated against formazin NTU standards and against a commercial reference turbidimeter in a flow loop using sediment from real sites — moving water, leaf debris, and flow surges, not still beakers.
 
-Calibration was done against formazin NTU standards, then against a commercial reference turbidimeter in a flow loop using sediment collected from the actual pilot sites — moving water, leaf debris, bubbles, and flow surges, not still beakers.
-
-| | Inlet node | Effluent node |
-|---|---|---|
-| Average error vs. reference | ±2.3 NTU | ±0.85 NTU |
-| Validated range | 0–200 NTU | low-NTU treated water |
-
-The inlet unit tracks the reference across the full storm range. The effluent unit resolves the clean end, where the differences that matter are small.
-
-Fifteen-plus hardware iterations so far. Known open items: repeatability is currently limited by breadboard-stage wiring rather than by the optics, and long-term fouling behavior in the field is exactly what the pilots are meant to characterize.
+The current limits are honest ones: repeatability is constrained by breadboard-stage wiring rather than by the optics, and long-term fouling behavior in the field is exactly what deployment is meant to characterize.
 
 A technical paper on the system is in review ahead of submission to the IEEE Sensors Conference.
 
@@ -99,7 +95,7 @@ LUNA is being developed with the people who do this work professionally, and dep
 
 **Oakland — Applied Marine Sciences.** AMS is an environmental sciences firm working on Bay Area stormwater. Paul Salop hosted us at a Port-area site and wrote a letter of support for the project, noting the need for continuous turbidity monitoring that can function through alternating wet and dry conditions — which is precisely the gap LUNA is built for.
 
-Paired deployments at both sites are scheduled for September 2026, ahead of the winter storm season. Partners install and retrieve; LUNA evaluates. Three additional Bay Area cities have expressed interest in the finished system.
+Paired deployments at both sites are scheduled for September 2026, ahead of the winter storm season. Partners install and retrieve; LUNA evaluates.
 
 ---
 
