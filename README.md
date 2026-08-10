@@ -28,64 +28,80 @@ Turbidity — how much suspended sediment is in the water, measured in NTU — i
 
 ---
 
-## What LUNA does
+## What Luna does
 
-LUNA is a **paired** measurement. One sensor node sits at the inlet and reads the runoff coming off the street. A second node sits at the outlet, in the underdrain cleanout, and reads the water leaving the cell. The difference between those two readings is the thing nobody has been measuring: treatment performance, storm by storm.
+Luna is a **paired turbidity-monitoring system** for bioretention facilities. One sensor sits at the inlet and measures the stormwater entering the facility, while another measures the water leaving through the underdrain. Comparing those two readings can help show how the facility is behaving during a storm and flag sites that may need closer inspection.
 
-Both nodes are built around the same core:
+The system uses low-cost optical sensing rather than an off-the-shelf commercial turbidity probe.
 
-- **ESP32 microcontroller** with a LoRa radio for wireless reporting
-- **850 nm infrared emitter and phototransistor** in a 3D-printed optical housing
-- **Servo-driven wiper** that clears the optical window between readings, so sediment and biofilm don't slowly corrupt the signal
-- **LiPo cell** sized for long unattended operation
-- Deployment through a standard 4-inch municipal cleanout — no digging, no construction
+The basic sensing setup uses:
 
-Because the hardware is cheap, the unit of deployment changes. Instead of instrumenting one site well, a city can instrument its whole portfolio.
+- **850 nm infrared emitter**
+- **Phototransistor**
+- **ESP32 microcontroller**
+- **Local data logging**
+- **Custom 3D-printed optical housing**
+- **Battery-powered electronics**
+- **Waterproof enclosure and mounting**
+
+The outlet sensor is our earlier proof of concept. The main thing we are currently building is the **higher-range inlet sensor**, which has to deal with dirtier water, more sediment, debris, bubbles, and buildup on the optical windows.
 
 ---
 
-## How we built it
+## Current inlet design
 
-We started by replicating published low-cost turbidity designs to understand the optics, then rebuilt around what a storm drain actually demands.
+The inlet sensor has gone through several CAD versions as we have tried to make it smaller, easier to seal, and practical for an actual bioretention site.
 
-**The optical problem.** A storm drain has uncontrolled lighting, so a raw photodiode reading is meaningless. The firmware takes a reading with the emitter off and again with it on, and uses the difference — ambient light subtracts out. Each reading averages 1000 fast ADC samples to suppress electrical noise.
+One of the main features we are experimenting with is a **magnetically coupled wiper** for the optical window.
 
-**The noise problem.** Bubbles, passing debris, and flow surges produce spikes that aren't real turbidity. Calibration takes six readings per standard and applies an interquartile-range filter to discard outliers before averaging.
+Sediment and biofilm can build up on the sensing surface over time and slowly change the reading. Our current idea uses a servo on the protected side of the enclosure to move a magnet, which then moves another magnet attached to a wiper on the wet side.
 
-**The curve problem.** Optical turbidity response is close to linear at low NTU and bends at higher concentrations, so assuming a model in advance is a mistake. The firmware fits both a linear and a quadratic model to the calibration points, computes R² for each, and automatically uses whichever fits better.
+This lets us move the wiper without putting the servo directly in the water or running a rotating shaft through the enclosure.
 
-**The fouling problem.** Anything sitting in stormwater grows biofilm and collects sediment, which slowly corrupts an optical reading in a way that looks like real data. That's why both housings evolved to carry a servo-driven wiper. The inlet design became a multi-part assembly with a magnet-coupled bottom, so the optical core stays sealed while the wiper moves.
+So far we have:
 
-**The enclosure problem.** An early housing failed during water-flow testing — the printed part broke, water got in, and components washed away. That failure drove the move to carbon-filled engineering filament and a redesign around sealing surfaces.
+- Designed multiple inlet enclosure versions
+- Tested different layouts for the sensing chamber and wiper
+- Added removable/threaded sections for cleaning and repairs
+- Redesigned the enclosure after discussing real installation constraints
+- Printed the first physical inlet prototype
+- Used the physical print to identify problems with size, wiring, strain relief, and component placement
 
-Three full design generations for each node, fifteen-plus hardware iterations overall.
+The current inlet prototype is still an early physical version. It is **not waterproof or field-ready yet**.
+
+---
+
+## What still needs to be tested
+
+The next stage is turning the current CAD and printed prototype into a complete working inlet sensor.
+
+We still need to:
+
+- Assemble the inlet sensing electronics
+- Determine the best amplifier gain for higher-turbidity water
+- Test the magnetic wiper under sediment exposure
+- Improve wire routing and strain relief
+- Finalize waterproofing and sealing
+- Run immersion tests
+- Run repeated wet-dry cycles
+- Test in moving, sediment-filled water
+- Test window fouling and cleaning
+- Integrate the inlet and outlet logging
+- Prepare the system for pilot deployment
+
+These are the main things the Macondo hardware funding would allow us to complete.
 
 ---
 
 ## Repository contents
 
-```
-Inlet Sensor/          CAD (STL) — v1 through v3, including wiper and magnet-coupled assemblies
-Effluent Sensor/       CAD (STL) — v1 through v3, plus electronics holder and battery mount
-SensorCode/            ESP32 firmware
-Project_LUNA_Images/   Build photos, bench tests, and field conditions
-```
-
-**`Calibration_FinalRunCode.ino`** — the main sensing and calibration routine: ambient-cancelling signal capture, outlier filtering, automatic model selection, and a live NTU output stream.
-
-**`OutletServoTest.ino`** — positional control for the wiper servo, with pulse widths matched to the DS-M005 datasheet for a full 0–180° sweep.
-
----
-
-## Where we are
-
-Both sensors are built and calibrated against formazin NTU standards and against a commercial reference turbidimeter in a flow loop using sediment from real sites — moving water, leaf debris, and flow surges, not still beakers.
-
-The current limits are honest ones: repeatability is constrained by breadboard-stage wiring rather than by the optics, and long-term fouling behavior in the field is exactly what deployment is meant to characterize.
-
-A technical paper on the system is in review ahead of submission to the IEEE Sensors Conference.
-
----
+```text
+Inlet Sensor/          Current inlet CAD and design iterations
+Effluent Sensor/       Earlier proof-of-concept CAD used as reference
+SensorCode/            ESP32 sensing and test firmware
+SensorWiringDiagrams/  Electronics and wiring documentation
+Project_LUNA_Images/   CAD screenshots, prototypes, testing, and site photos
+BOM.csv                Parts requested for the current build
 
 ## Field partners
 
